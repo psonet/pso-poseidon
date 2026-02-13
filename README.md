@@ -20,18 +20,17 @@ Parameters provided by the library are:
 
 ## Output type
 
-[`Poseidon`](https://docs.rs/light-poseidon/latest/light_poseidon/struct.Poseidon.html) type implements two traits which serve the purpose
+`Poseidon` type implements two traits which serve the purpose
 of returning the calculated hash in different representations:
 
-* [`PoseidonHasher`](https://docs.rs/light-poseidon/latest/light_poseidon/trait.PoseidonHasher.html) with the `hash` method which returns
-  [`ff::PrimeField`](ark_ff::PrimeField). Might be useful if you want
+* `PoseidonHasher` with the `hash` method which returns
+  `ff::PrimeField`. Might be useful if you want
   to immediately process the result with an another library which works with
-  [`ff::PrimeField`](ark_ff::PrimeField) types.
+  `ff::PrimeField` types.
 
 ## Examples
 
-With [`PoseidonHasher`](https://docs.rs/light-poseidon/latest/light_poseidon/trait.PoseidonHasher.html) trait and
-[`ff::PrimeField`](ark_ff::PrimeField) result:
+With `PoseidonHasher` trait and `ff::PrimeField` result:
 
 ```rust
 use halo2_axiom::halo2curves::bn256::Fr;
