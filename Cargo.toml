@@ -1,0 +1,10 @@
+[package]
+name = "pso-poseidon"
+version = "0.1.0"
+edition = "2021"
+description = "Poseidon hash implementation compatible with Circom"
+
+[dependencies]
+halo2-axiom = "0.5"
+ff = "0.13"
+thiserror = "2.0.17"
