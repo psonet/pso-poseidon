@@ -3,8 +3,13 @@ name = "pso-poseidon"
 version = "0.1.0"
 edition = "2021"
 description = "Poseidon hash implementation compatible with Circom"
+license = "GPL-3.0"
+repository = "https://github.com/psobn/pso-poseidon"
 
 [dependencies]
 halo2-axiom = "0.5"
 ff = "0.13"
 thiserror = "2.0.17"
+
+[dev-dependencies]
+rand = "0.8"

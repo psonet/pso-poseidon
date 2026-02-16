@@ -29,7 +29,7 @@
 //! ```rust
 //! use halo2_axiom::halo2curves::bn256::Fr;
 //! use halo2_axiom::halo2curves::ff::PrimeField;
-//! use light_poseidon::{Poseidon, PoseidonHasher, parameters::bn254_x5};
+//! use pso_poseidon::{Poseidon, PoseidonHasher};
 //!
 //! let mut poseidon = Poseidon::<Fr>::new_circom(2).unwrap();
 //!
@@ -145,7 +145,7 @@ pub trait PoseidonHasher<F: PrimeField> {
     /// ```rust
     /// use halo2_axiom::halo2curves::bn256::Fr;
     /// use halo2_axiom::halo2curves::ff::PrimeField;
-    /// use light_poseidon::{Poseidon, PoseidonHasher, parameters::bn254_x5};
+    /// use pso_poseidon::{Poseidon, PoseidonHasher};
     ///
     /// let mut poseidon = Poseidon::<Fr>::new_circom(2).unwrap();
     ///
@@ -262,29 +262,6 @@ impl<F: PrimeField> PoseidonHasher<F> for Poseidon<F> {
     }
 }
 
-macro_rules! impl_hash_bytes {
-    ($fn_name:ident, $bytes_to_prime_field_element_fn:ident, $to_bytes_fn:ident) => {
-        fn $fn_name(&mut self, inputs: &[&[u8]]) -> Result<[u8; HASH_LEN], PoseidonError> {
-            let inputs: Result<Vec<_>, _> = inputs
-                .iter()
-                .map(|input| validate_bytes_length::<F>(input))
-                .collect();
-            let inputs = inputs?;
-            let inputs: Result<Vec<_>, _> = inputs
-                .iter()
-                .map(|input| $bytes_to_prime_field_element_fn(input))
-                .collect();
-            let inputs = inputs?;
-            let hash = self.hash(&inputs)?;
-
-            hash.into_bigint()
-                .$to_bytes_fn()
-                .try_into()
-                .map_err(|_| PoseidonError::VecToArray)
-        }
-    };
-}
-
 impl<F: PrimeField> Poseidon<F> {
     pub fn new_circom(nr_inputs: usize) -> Result<Poseidon<Fr>, PoseidonError> {
         Self::with_domain_tag_circom(nr_inputs, Fr::zero())
@@ -309,6 +286,7 @@ impl<F: PrimeField> Poseidon<F> {
     }
 }
 
+#[cfg(test)]
 mod test {
     use super::*;
 
@@ -324,7 +302,8 @@ mod test {
         assert_eq!(
             hash.to_bytes(),
             [
-                144, 25, 130, 41, 200, 53, 231, 38, 27, 206, 162, 156, 254, 132, 123, 32, 25, 99, 242, 85, 3, 94, 235, 125, 28, 140, 138, 143, 147, 225, 84, 13
+                144, 25, 130, 41, 200, 53, 231, 38, 27, 206, 162, 156, 254, 132, 123, 32, 25, 99,
+                242, 85, 3, 94, 235, 125, 28, 140, 138, 143, 147, 225, 84, 13
             ]
         );
     }
