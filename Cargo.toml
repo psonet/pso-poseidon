@@ -1,6 +1,6 @@
 [package]
 name = "pso-poseidon"
-version = "0.1.0"
+version = "0.1.2"
 edition = "2021"
 description = "Poseidon hash implementation compatible with Circom"
 license = "GPL-3.0"
