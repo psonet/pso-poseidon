@@ -24,28 +24,32 @@ Parameters provided by the library are:
 of returning the calculated hash in different representations:
 
 * `PoseidonHasher` with the `hash` method which returns
-  `ff::PrimeField`. Might be useful if you want
+  `ark_ff::PrimeField`. Might be useful if you want
   to immediately process the result with an another library which works with
-  `ff::PrimeField` types.
+  `ark_ff::PrimeField` types.
 
 ## Examples
 
-With `PoseidonHasher` trait and `ff::PrimeField` result:
+With `PoseidonHasher` trait and `ark_ff::PrimeField` result:
 
 ```rust
-use halo2_axiom::halo2curves::bn256::Fr;
-use halo2_axiom::halo2curves::ff::PrimeField;
-use light_poseidon::{Poseidon, PoseidonHasher, parameters::bn254_x5};
+use ark_bn254::Fr;
+use ark_ff::PrimeField;
+use pso_poseidon::{Poseidon, PoseidonHasher};
 
 let mut poseidon = Poseidon::<Fr>::new_circom(2).unwrap();
 
-let input1 = Fr::from_bytes(&[1u8; 32]).unwrap();
-let input2 = Fr::from_bytes(&[2u8; 32]).unwrap();
+let input1 = Fr::from_le_bytes_mod_order(&[1u8; 32]);
+let input2 = Fr::from_le_bytes_mod_order(&[2u8; 32]);
 
 let hash = poseidon.hash(&[input1, input2]).unwrap();
 
 // Do something with `hash`.
 ```
+
+## Field Arithmetic
+
+This library uses [ark-ff](https://github.com/arkworks-rs/algebra) for field arithmetic. While ark-ff carries an academic disclaimer, it is widely adopted in production by major projects including [Aleo](https://github.com/AleoNet/snarkVM), [Penumbra](https://github.com/penumbra-zone/penumbra), [Mina (Kimchi)](https://github.com/o1-labs/proof-systems), and [Espresso Systems](https://github.com/EspressoSystems).
 
 ## Implementation
 
