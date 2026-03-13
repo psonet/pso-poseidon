@@ -1,12 +1,13 @@
-use halo2_axiom::halo2curves::bn256::Fr;
+use ark_bn254::Fr;
+use ark_ff::{BigInteger, PrimeField};
 use pso_poseidon::{Poseidon, PoseidonError, PoseidonHasher};
 
 /// Checks the hash of byte slices consisting of ones and twos.
 #[test]
 fn test_poseidon_bn254_x5_fq_input_ones_twos() {
     // Use the same approach as the existing test in lib.rs
-    let input1 = Fr::from_bytes(&[1u8; 32]).unwrap();
-    let input2 = Fr::from_bytes(&[2u8; 32]).unwrap();
+    let input1 = Fr::from_le_bytes_mod_order(&[1u8; 32]);
+    let input2 = Fr::from_le_bytes_mod_order(&[2u8; 32]);
     let mut hasher = Poseidon::<Fr>::new_circom(2).unwrap();
     let hash = hasher.hash(&[input1, input2]).unwrap();
 
@@ -16,16 +17,16 @@ fn test_poseidon_bn254_x5_fq_input_ones_twos() {
         3, 94, 235, 125, 28, 140, 138, 143, 147, 225, 84, 13,
     ];
 
-    assert_eq!(hash.to_bytes(), expected_le);
+    assert_eq!(hash.into_bigint().to_bytes_le(), expected_le);
 }
 
 /// Checks the hash of bytes slices consisting of ones and twos, with a custom
 /// domain tag.
 #[test]
 fn test_poseidon_bn254_x5_fq_with_domain_tag() {
-    let input1 = Fr::from_bytes(&[1u8; 32]).unwrap();
-    let input2 = Fr::from_bytes(&[2u8; 32]).unwrap();
-    let mut hasher = Poseidon::<Fr>::with_domain_tag_circom(2, Fr::zero()).unwrap();
+    let input1 = Fr::from_le_bytes_mod_order(&[1u8; 32]);
+    let input2 = Fr::from_le_bytes_mod_order(&[2u8; 32]);
+    let mut hasher = Poseidon::<Fr>::with_domain_tag_circom(2, Fr::from(0u64)).unwrap();
     let hash = hasher.hash(&[input1, input2]).unwrap();
 
     // Expected value with zero domain tag (same as default)
@@ -34,12 +35,12 @@ fn test_poseidon_bn254_x5_fq_with_domain_tag() {
         3, 94, 235, 125, 28, 140, 138, 143, 147, 225, 84, 13,
     ];
 
-    assert_eq!(hash.to_bytes(), expected_tag_zero_le);
+    assert_eq!(hash.into_bigint().to_bytes_le(), expected_tag_zero_le);
 
-    let mut hasher = Poseidon::<Fr>::with_domain_tag_circom(2, Fr::one()).unwrap();
+    let mut hasher = Poseidon::<Fr>::with_domain_tag_circom(2, Fr::from(1u64)).unwrap();
     let hash = hasher.hash(&[input1, input2]).unwrap();
     // Should be different from zero domain tag
-    assert_ne!(hash.to_bytes(), expected_tag_zero_le);
+    assert_ne!(hash.into_bigint().to_bytes_le(), expected_tag_zero_le);
 }
 
 /// Check whether providing different number of inputs than supported by the
@@ -47,8 +48,8 @@ fn test_poseidon_bn254_x5_fq_with_domain_tag() {
 #[test]
 fn test_poseidon_bn254_x5_fq_too_many_inputs() {
     // Use simple field elements that we know work
-    let input1 = Fr::from_bytes(&[1u8; 32]).unwrap();
-    let input2 = Fr::from_bytes(&[2u8; 32]).unwrap();
+    let input1 = Fr::from_le_bytes_mod_order(&[1u8; 32]);
+    let input2 = Fr::from_le_bytes_mod_order(&[2u8; 32]);
 
     for i in 1..13 {
         let mut hasher = Poseidon::<Fr>::new_circom(i).unwrap();
@@ -98,7 +99,7 @@ fn test_circom_t_0_fails() {
 /// Checks that hashing the same input twice produces the same results.
 #[test]
 fn test_poseidon_bn254_x5_fq_same_input_same_results() {
-    let input = Fr::from_bytes(&[1u8; 32]).unwrap();
+    let input = Fr::from_le_bytes_mod_order(&[1u8; 32]);
 
     for nr_inputs in 1..12 {
         let mut hasher = Poseidon::<Fr>::new_circom(nr_inputs).unwrap();
@@ -118,8 +119,8 @@ fn test_poseidon_bn254_x5_fq_same_input_same_results() {
 /// Test that hashing different inputs produces different results.
 #[test]
 fn test_poseidon_bn254_x5_fq_different_inputs_different_results() {
-    let input1 = Fr::from_bytes(&[1u8; 32]).unwrap();
-    let input2 = Fr::from_bytes(&[2u8; 32]).unwrap();
+    let input1 = Fr::from_le_bytes_mod_order(&[1u8; 32]);
+    let input2 = Fr::from_le_bytes_mod_order(&[2u8; 32]);
 
     for nr_inputs in 1..12 {
         let mut hasher = Poseidon::<Fr>::new_circom(nr_inputs).unwrap();
@@ -141,7 +142,7 @@ fn test_poseidon_bn254_x5_fq_different_inputs_different_results() {
 /// Test that hashing with different numbers of inputs produces different results.
 #[test]
 fn test_poseidon_bn254_x5_fq_different_widths_different_results() {
-    let input = Fr::from_bytes(&[1u8; 32]).unwrap();
+    let input = Fr::from_le_bytes_mod_order(&[1u8; 32]);
 
     let mut hashes = Vec::new();
     for nr_inputs in 1..12 {
@@ -166,8 +167,8 @@ fn test_poseidon_bn254_x5_fq_different_widths_different_results() {
 #[test]
 fn test_poseidon_bn254_x5_fq_deterministic() {
     // Use known field elements
-    let input1 = Fr::from_bytes(&[1u8; 32]).unwrap();
-    let input2 = Fr::from_bytes(&[2u8; 32]).unwrap();
+    let input1 = Fr::from_le_bytes_mod_order(&[1u8; 32]);
+    let input2 = Fr::from_le_bytes_mod_order(&[2u8; 32]);
 
     for nr_inputs in 1..12 {
         // Create inputs (alternating between input1 and input2)
@@ -193,20 +194,18 @@ fn test_poseidon_bn254_x5_fq_various_inputs() {
     let mut inputs_list = Vec::new();
 
     // Add zero
-    inputs_list.push(Fr::zero());
+    inputs_list.push(Fr::from(0u64));
 
     // Add small values (1, 2, 3, etc.)
     for i in 1..10 {
         let mut bytes = [0u8; 32];
         bytes[31] = i;
-        if let Some(fr) = Fr::from_bytes(&bytes).into() {
-            inputs_list.push(fr);
-        }
+        inputs_list.push(Fr::from_le_bytes_mod_order(&bytes));
     }
 
     // Add some patterns
-    inputs_list.push(Fr::from_bytes(&[1u8; 32]).unwrap());
-    inputs_list.push(Fr::from_bytes(&[2u8; 32]).unwrap());
+    inputs_list.push(Fr::from_le_bytes_mod_order(&[1u8; 32]));
+    inputs_list.push(Fr::from_le_bytes_mod_order(&[2u8; 32]));
 
     for nr_inputs in 1..12 {
         let mut hasher = Poseidon::<Fr>::new_circom(nr_inputs).unwrap();
@@ -223,6 +222,6 @@ fn test_poseidon_bn254_x5_fq_various_inputs() {
         // Result should be a valid field element
         let hash = result.unwrap();
         // Verify it's a valid hash (not necessarily non-zero, but should be consistent)
-        let _ = hash.to_bytes(); // Just verify we can convert to bytes
+        let _ = hash.into_bigint().to_bytes_le(); // Just verify we can convert to bytes
     }
 }

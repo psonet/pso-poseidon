@@ -17,24 +17,24 @@
 //! of returning the calculated hash in different representations:
 //!
 //! * [`PoseidonHasher`](crate::PoseidonHasher) with the `hash` method which returns
-//!   [`halo2_axiom::halo2curves::ff::PrimeField`](halo2_axiom::halo2curves::ff::PrimeField).
+//!   [`ark_ff::PrimeField`](ark_ff::PrimeField).
 //!   Might be useful if you want to immediately process the result with another library
-//!   that uses Halo2 field types.
+//!   that uses ark-ff field types.
 //!
 //! # Examples
 //!
 //! With [`PoseidonHasher`](crate::PoseidonHasher) trait and
-//! [`halo2_axiom::halo2curves::ff::PrimeField`](halo2_axiom::halo2curves::ff::PrimeField) result:
+//! [`ark_ff::PrimeField`](ark_ff::PrimeField) result:
 //!
 //! ```rust
-//! use halo2_axiom::halo2curves::bn256::Fr;
-//! use halo2_axiom::halo2curves::ff::PrimeField;
+//! use ark_bn254::Fr;
+//! use ark_ff::PrimeField;
 //! use pso_poseidon::{Poseidon, PoseidonHasher};
 //!
 //! let mut poseidon = Poseidon::<Fr>::new_circom(2).unwrap();
 //!
-//! let input1 = Fr::from_bytes(&[1u8; 32]).unwrap();
-//! let input2 = Fr::from_bytes(&[2u8; 32]).unwrap();
+//! let input1 = Fr::from_le_bytes_mod_order(&[1u8; 32]);
+//! let input2 = Fr::from_le_bytes_mod_order(&[2u8; 32]);
 //!
 //! let hash = poseidon.hash(&[input1, input2]).unwrap();
 //!
@@ -56,8 +56,10 @@
 //! This library has been audited by [Veridise](https://veridise.com/). You can
 //! read the audit report [here](https://github.com/Lightprotocol/light-poseidon/blob/main/assets/audit.pdf).
 
-use ff::PrimeField;
-use halo2_axiom::halo2curves::bn256::Fr;
+use ark_bn254::Fr;
+#[cfg(test)]
+use ark_ff::BigInteger;
+use ark_ff::PrimeField;
 
 use thiserror::Error;
 
@@ -143,14 +145,14 @@ pub trait PoseidonHasher<F: PrimeField> {
     /// fields) and BN254-based parameters provided by the library.
     ///
     /// ```rust
-    /// use halo2_axiom::halo2curves::bn256::Fr;
-    /// use halo2_axiom::halo2curves::ff::PrimeField;
+    /// use ark_bn254::Fr;
+    /// use ark_ff::PrimeField;
     /// use pso_poseidon::{Poseidon, PoseidonHasher};
     ///
     /// let mut poseidon = Poseidon::<Fr>::new_circom(2).unwrap();
     ///
-    /// let input1 = Fr::from_bytes(&[1u8; 32]).unwrap();
-    /// let input2 = Fr::from_bytes(&[2u8; 32]).unwrap();
+    /// let input1 = Fr::from_le_bytes_mod_order(&[1u8; 32]);
+    /// let input2 = Fr::from_le_bytes_mod_order(&[2u8; 32]);
     ///
     /// let hash = poseidon.hash(&[input1, input2]).unwrap();
     ///
@@ -264,7 +266,7 @@ impl<F: PrimeField> PoseidonHasher<F> for Poseidon<F> {
 
 impl<F: PrimeField> Poseidon<F> {
     pub fn new_circom(nr_inputs: usize) -> Result<Poseidon<Fr>, PoseidonError> {
-        Self::with_domain_tag_circom(nr_inputs, Fr::zero())
+        Self::with_domain_tag_circom(nr_inputs, Fr::from(0u64))
     }
 
     pub fn with_domain_tag_circom(
@@ -293,14 +295,14 @@ mod test {
     /// Checks the hash of byte slices consistng of ones and twos.
     #[test]
     fn test_poseidon_bn254_x5_fq_input_ones_twos() {
-        let input1 = Fr::from_bytes(&[1u8; 32]).unwrap();
-        let input2 = Fr::from_bytes(&[2u8; 32]).unwrap();
+        let input1 = Fr::from_le_bytes_mod_order(&[1u8; 32]);
+        let input2 = Fr::from_le_bytes_mod_order(&[2u8; 32]);
         let mut hasher = Poseidon::<Fr>::new_circom(2).unwrap();
 
         let hash = hasher.hash(&[input1, input2]).unwrap();
 
         assert_eq!(
-            hash.to_bytes(),
+            hash.into_bigint().to_bytes_le(),
             [
                 144, 25, 130, 41, 200, 53, 231, 38, 27, 206, 162, 156, 254, 132, 123, 32, 25, 99,
                 242, 85, 3, 94, 235, 125, 28, 140, 138, 143, 147, 225, 84, 13
