@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## v0.3.1 - 2026-05-19
+#### Bug Fixes
+- correct stale psobn → psonet repo links + add status badges - (fc4d2d2) - Anton Velichko
+
+- - -
+
 ## v0.3.0 - 2026-05-19
 #### Features
 - enable cargo-deny enforcement and cog-driven auto-release - (169b0e6) - Anton Velichko
