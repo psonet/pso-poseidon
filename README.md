@@ -1,9 +1,13 @@
 # P.S.O. Poseidon
 
+[![crates.io](https://img.shields.io/crates/v/pso-poseidon.svg)](https://crates.io/crates/pso-poseidon)
+[![release](https://img.shields.io/github/v/release/psonet/pso-poseidon.svg)](https://github.com/psonet/pso-poseidon/releases)
+[![CI](https://github.com/psonet/pso-poseidon/actions/workflows/ci.yml/badge.svg)](https://github.com/psonet/pso-poseidon/actions/workflows/ci.yml)
+
 <!-- cargo-rdme start -->
 
 **pso-poseidon** is a [Poseidon](https://eprint.iacr.org/2019/458) hash
-implementation in Rust created for [PSO](https://github.com/psobn) based on [light-poseidon](https://github.com/Lightprotocol/light-poseidon/) library.
+implementation in Rust created for [PSO](https://github.com/psonet) based on [light-poseidon](https://github.com/Lightprotocol/light-poseidon/) library.
 
 ## Parameters
 

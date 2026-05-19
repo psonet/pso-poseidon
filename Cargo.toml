@@ -4,7 +4,7 @@ version = "0.3.0"
 edition = "2021"
 description = "Poseidon hash implementation compatible with Circom"
 license = "MIT"
-repository = "https://github.com/psobn/pso-poseidon"
+repository = "https://github.com/psonet/pso-poseidon"
 
 [dependencies]
 ark-ff = "0.5"
