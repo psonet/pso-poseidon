@@ -1,21 +1,93 @@
 name: CI
 
+# Triggers
+#   push:main         full pipeline incl. cog auto-bump + publish + github-release
+#   push:tags:["v*"]  release-only path; skip lint/test/build, run publish + github-release
+#                     against the named tag
+#   pull_request      lint/test/build/cargo-deny only — no release work
+#   release:published legacy manual path — `publish-manual` re-runs cargo publish.
+#                     Kept during the cog-flow rollout; remove in a follow-up commit
+#                     once the auto-bump path is verified.
+#   schedule          nightly cargo-deny at 04:00 UTC to surface fresh advisories
+#   workflow_dispatch maintainer-named (re-)release; empty `tag` input runs the normal
+#                     main pipeline
+
 on:
   push:
     branches: [ main ]
+    tags: [ "v*" ]
   pull_request:
     branches: [ main ]
   release:
     types: [ published ]
+  schedule:
+    - cron: '0 4 * * *'
   workflow_dispatch:
+    inputs:
+      tag:
+        description: >-
+          Existing tag to (re-)release (e.g. "v0.2.0"). Empty input
+          runs the normal main pipeline.
+        required: false
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # ----------------------------------------------------------------
+  # Mode prelude. Every release-aware job's `if:` reads `release_tag`.
+  # Non-empty when this run is a release-only path (tag push or
+  # workflow_dispatch with `tag` input). Empty otherwise — the
+  # normal "ran on main" / "PR" pipeline.
+  # ----------------------------------------------------------------
+  resolve:
+    name: Resolve release tag
+    runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.r.outputs.release_tag }}
+    steps:
+      - id: r
+        run: |
+          set -euo pipefail
+          tag=""
+          case "${{ github.event_name }}" in
+            push)
+              if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+                tag="${{ github.ref_name }}"
+              fi
+              ;;
+            workflow_dispatch)
+              tag='${{ inputs.tag }}'
+              ;;
+          esac
+          echo "release_tag=${tag}"
+          echo "release_tag=${tag}" >> "$GITHUB_OUTPUT"
+
+  # Supply-chain enforcement. Runs on every PR + nightly cron @ 04:00 UTC.
+  # Independent of the rest of the pipeline so a fresh advisory surfacing
+  # nightly is visible without rerunning lint/test.
+  cargo-deny:
+    name: cargo-deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check all
+
   lint:
     name: Lint and Format Check
     runs-on: ubuntu-latest
+    needs: [resolve]
+    if: needs.resolve.outputs.release_tag == ''
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -33,10 +105,10 @@ jobs:
           key: ${{ runner.os }}-cargo-stable-lint-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-stable-lint-
-      
+
       - name: Check code formatting
         run: cargo fmt --all -- --check
-      
+
       - name: Run clippy (code smells check)
         run: |
           cargo clippy --version
@@ -81,14 +153,15 @@ jobs:
             -A unused_imports \
             -A unused_macros \
             -A dead_code
-      
+
       - name: Check documentation builds
         run: cargo doc --no-deps --all-features --document-private-items
 
   test:
     name: Test
     runs-on: ubuntu-latest
-    needs: [lint]
+    needs: [resolve, lint]
+    if: needs.resolve.outputs.release_tag == ''
     strategy:
       matrix:
         rust:
@@ -99,7 +172,7 @@ jobs:
           - rust: nightly
             allow_failure: true
     steps:
-      - uses: actions/checkout@v4      
+      - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           components: rustfmt, clippy, cargo
@@ -115,11 +188,11 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ matrix.rust }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-${{ matrix.rust }}-
-      
+
       - name: Check formatting
         run: cargo fmt --all -- --check
         continue-on-error: ${{ matrix.rust == 'nightly' }}
-      
+
       - name: Run clippy
         run: |
           cargo clippy --version
@@ -131,17 +204,18 @@ jobs:
             -A clippy::expect_used \
             -A clippy::panic
         continue-on-error: ${{ matrix.rust == 'nightly' }}
-      
+
       - name: Run tests
         run: cargo test --verbose --all-features
-      
+
       - name: Build
         run: cargo build --verbose --release --all-features
 
   build:
     name: Build
     runs-on: ${{ matrix.os }}
-    needs: [lint, test]
+    needs: [resolve, lint, test]
+    if: needs.resolve.outputs.release_tag == ''
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
@@ -165,7 +239,7 @@ jobs:
             ${{ runner.os }}-cargo-stable-
       - name: Build
         run: cargo build --verbose --release --all-features
-      
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -173,17 +247,30 @@ jobs:
           path: target/release/
           if-no-files-found: ignore
 
-  publish:
-    name: Publish to crates.io
+  # ----------------------------------------------------------------
+  # Legacy manual release path. Maintainer creates a GitHub Release
+  # (or runs workflow_dispatch on main) and this publishes to crates.io.
+  # Kept in place during the cog-flow rollout so the manual path stays
+  # operational. Remove in a follow-up commit once the auto-bump flow
+  # is verified end-to-end. Note: the cog flow's `github-release` job
+  # below also fires `release:published`, so an auto-bump release will
+  # cause this job to run a second time and `cargo publish` will error
+  # with "version already exists" — expected during the transition.
+  # ----------------------------------------------------------------
+  publish-manual:
+    name: Publish to crates.io (manual)
     runs-on: ubuntu-latest
-    needs: [lint, test, build]
-    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    needs: [resolve, lint, test, build]
+    if: |
+      needs.resolve.outputs.release_tag == '' &&
+      (github.event_name == 'release' ||
+       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           components: rustfmt, clippy, cargo
-      
+
       - name: Run tests
         run: cargo test --verbose --all-features
 
@@ -195,3 +282,131 @@ jobs:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |
           cargo publish --verbose --token "${CARGO_REGISTRY_TOKEN}"
+
+  # ----------------------------------------------------------------
+  # Version bump + tag. Runs after every check on `push: main` (PR
+  # runs and tag-push runs skip). Cog inspects the conventional-
+  # commit log since the last tag and creates a `chore(version):
+  # vX.Y.Z` commit + matching tag if `feat/fix/breaking` commits
+  # have landed.
+  # ----------------------------------------------------------------
+  tag:
+    name: Bump version & tag
+    runs-on: ubuntu-latest
+    needs: [resolve, lint, test, build]
+    if: |
+      needs.resolve.outputs.release_tag == '' &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      !startsWith(github.event.head_commit.message, 'chore(version):') &&
+      !contains(github.event.head_commit.message, '[skip ci]')
+    outputs:
+      tag: ${{ steps.bump.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Cocogitto bump
+        uses: cocogitto/cocogitto-action@v4
+        with:
+          command: bump
+          args: --auto
+          git-user: "github-actions[bot]"
+          git-user-email: "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Resolve created tag (if any)
+        id: bump
+        run: |
+          set -euo pipefail
+          tag="$(git tag --points-at HEAD | grep '^v' | head -n1 || true)"
+          echo "tag=${tag}"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+
+  # ----------------------------------------------------------------
+  # Publish (cog flow). Fires on (a) a fresh cog-pushed tag in the
+  # run above, or (b) a manual tag push / workflow_dispatch with
+  # `tag` input. The "no new bump" case (tag job runs but creates no
+  # tag) cleanly short-circuits via the `tag.outputs.tag != ''` guard.
+  # ----------------------------------------------------------------
+  publish:
+    name: Publish to crates.io
+    runs-on: ubuntu-latest
+    needs: [resolve, tag]
+    if: |
+      always() &&
+      (
+        (needs.tag.result == 'success' && needs.tag.outputs.tag != '') ||
+        needs.resolve.outputs.release_tag != ''
+      )
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Check out the freshly-created tag (or the manually-named
+          # one) so cargo publish ships the bumped Cargo.toml the
+          # `tag` job's cog run wrote, not the pre-bump HEAD.
+          ref: ${{ needs.tag.outputs.tag || needs.resolve.outputs.release_tag }}
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: cargo
+
+      - name: Publish to crates.io
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          cargo publish --verbose --token "${CARGO_REGISTRY_TOKEN}"
+
+  # ----------------------------------------------------------------
+  # GitHub release. Library-only crate has no binary artifacts to
+  # attach, so this is a thin shell that creates the release at the
+  # cog tag with auto-generated notes — the canonical artifact
+  # channel is crates.io (handled by `publish` above).
+  # ----------------------------------------------------------------
+  github-release:
+    name: Create GitHub release
+    runs-on: ubuntu-latest
+    needs: [resolve, tag, publish]
+    if: |
+      always() &&
+      (
+        (needs.tag.result == 'success' && needs.tag.outputs.tag != '') ||
+        needs.resolve.outputs.release_tag != ''
+      )
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.tag.outputs.tag || needs.resolve.outputs.release_tag }}
+
+      - name: Compose release body
+        env:
+          TAG: ${{ needs.tag.outputs.tag || needs.resolve.outputs.release_tag }}
+          PUBLISH_RESULT: ${{ needs.publish.result }}
+        run: |
+          set -euo pipefail
+          {
+            echo "## Install"
+            echo
+            echo "    cargo add pso-poseidon@${TAG#v}"
+            echo
+            echo "## CI"
+            echo
+            echo "- crates.io publish: ${PUBLISH_RESULT}"
+          } > RELEASE_BODY.md
+          cat RELEASE_BODY.md
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.tag.outputs.tag || needs.resolve.outputs.release_tag }}
+          name: ${{ needs.tag.outputs.tag || needs.resolve.outputs.release_tag }}
+          body_path: RELEASE_BODY.md
+          generate_release_notes: true
+          fail_on_unmatched_files: false
