@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## v0.3.3 - 2026-05-20
+#### Bug Fixes
+- (**ci**) re-package .crate after cargo publish strips it - (f7225b2) - Anton Velichko
+
+- - -
+
 ## v0.3.2 - 2026-05-20
 #### Bug Fixes
 - (**ci**) attach .crate + SHA256SUMS to GH Releases - (47af4f8) - Anton Velichko
