@@ -2,6 +2,15 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## v0.3.2 - 2026-05-20
+#### Bug Fixes
+- (**ci**) attach .crate + SHA256SUMS to GH Releases - (47af4f8) - Anton Velichko
+#### Continuous Integration
+- add commitlint PR check (conventional-commits enforcement) - (4ef9e3a) - Anton Velichko
+- drop legacy publish-manual job now that cog flow is verified - (504f8e6) - Anton Velichko
+
+- - -
+
 ## v0.3.1 - 2026-05-19
 #### Bug Fixes
 - correct stale psobn → psonet repo links + add status badges - (fc4d2d2) - Anton Velichko
