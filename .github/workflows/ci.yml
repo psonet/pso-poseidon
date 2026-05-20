@@ -331,11 +331,29 @@ jobs:
         run: |
           cargo publish --verbose --token "${CARGO_REGISTRY_TOKEN}"
 
+      # `cargo publish` already produced `target/package/*.crate`.
+      # Upload it as a workflow artifact so the `github-release` job
+      # can attach the byte-identical `.crate` to the GH Release
+      # alongside the crates.io copy. Same artifact = signing in a
+      # follow-up commit produces one sigstore signature that
+      # verifies both the GH-Release-attached and crates.io copies.
+      - name: Upload .crate as workflow artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: crate-tarball
+          path: target/package/*.crate
+          if-no-files-found: error
+          retention-days: 1
+
   # ----------------------------------------------------------------
-  # GitHub release. Library-only crate has no binary artifacts to
-  # attach, so this is a thin shell that creates the release at the
-  # cog tag with auto-generated notes — the canonical artifact
-  # channel is crates.io (handled by `publish` above).
+  # GitHub release. Attaches the byte-identical `.crate` (from the
+  # `publish` job's workflow artifact) and a SHA256SUMS file
+  # alongside the auto-generated notes. The crates.io upload remains
+  # the canonical install channel; the GH Release adds an
+  # alternate-checksummed copy for downstream consumers that prefer
+  # GitHub-hosted artifacts (and is the signing pipeline's anchor in
+  # a follow-up commit).
   # ----------------------------------------------------------------
   github-release:
     name: Create GitHub release
@@ -354,6 +372,22 @@ jobs:
         with:
           ref: ${{ needs.tag.outputs.tag || needs.resolve.outputs.release_tag }}
 
+      - name: Download .crate artifact
+        if: needs.publish.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: crate-tarball
+          path: dist/
+
+      - name: Generate SHA256SUMS
+        if: needs.publish.result == 'success'
+        run: |
+          set -euo pipefail
+          cd dist
+          shasum -a 256 *.crate > SHA256SUMS
+          echo "---"
+          cat SHA256SUMS
+
       - name: Compose release body
         env:
           TAG: ${{ needs.tag.outputs.tag || needs.resolve.outputs.release_tag }}
@@ -364,6 +398,11 @@ jobs:
             echo "## Install"
             echo
             echo "    cargo add pso-poseidon@${TAG#v}"
+            echo
+            echo "## Artifacts"
+            echo
+            echo "- \`pso-poseidon-${TAG#v}.crate\` — byte-identical to the crates.io upload."
+            echo "- \`SHA256SUMS\` — SHA-256 of the above."
             echo
             echo "## CI"
             echo
@@ -379,3 +418,6 @@ jobs:
           body_path: RELEASE_BODY.md
           generate_release_notes: true
           fail_on_unmatched_files: false
+          files: |
+            dist/*.crate
+            dist/SHA256SUMS
