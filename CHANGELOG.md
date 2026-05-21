@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## v0.3.5 - 2026-05-21
+#### Bug Fixes
+- (**release**) downgrade cosign tooling to v3.x / v2.x action lines - (03d13f7) - Anton Velichko
+
+- - -
+
 ## v0.3.4 - 2026-05-21
 #### Bug Fixes
 - (**release**) sign release artifacts with sigstore cosign + SLSA attest - (fe815f6) - Anton Velichko
