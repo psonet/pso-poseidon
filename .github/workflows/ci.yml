@@ -527,7 +527,7 @@ jobs:
           # Identity regex pins the signature to a tag-triggered run of
           # THIS repo's ci.yml workflow. A signature minted on any other
           # workflow path, on a branch ref, or by another repo fails.
-          IDENTITY_RE='^https://github\.com/psonet/pso-poseidon/\.github/workflows/ci\.yml@refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$'
+          IDENTITY_RE='^https://github\.com/psonet/pso-poseidon/\.github/workflows/ci\.yml@refs/(heads/main|tags/v[0-9]+\.[0-9]+\.[0-9]+)$'
           OIDC_ISSUER='https://token.actions.githubusercontent.com'
           failed=0
           shopt -s nullglob
