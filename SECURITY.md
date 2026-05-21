@@ -2,7 +2,7 @@
 
 ## Release signing
 
-Starting with the first release tagged after this file lands (expected: **v0.3.2**, the cog-bumped patch following PR `release/sigstore-signing`), every artifact attached to a `pso-poseidon` GitHub Release is signed with [sigstore cosign](https://docs.sigstore.dev/cosign/overview/) keyless OIDC and carries an [SLSA v1.0](https://slsa.dev/spec/v1.0/) build-provenance attestation minted by `actions/attest-build-provenance`.
+Starting with the first release tagged after this file lands (expected: **v0.3.5**, the cog-bumped patch following PR `release/sigstore-signing`), every artifact attached to a `pso-poseidon` GitHub Release is signed with [sigstore cosign](https://docs.sigstore.dev/cosign/overview/) keyless OIDC and carries an [SLSA v1.0](https://slsa.dev/spec/v1.0/) build-provenance attestation minted by `actions/attest-build-provenance`.
 
 ### Signed artifacts
 
@@ -40,7 +40,7 @@ You need [cosign](https://docs.sigstore.dev/cosign/installation/) and [`gh`](htt
 ```sh
 # Pick a signed release.
 REPO=psonet/pso-poseidon
-TAG=v0.3.2  # or any release ≥ the cutoff
+TAG=v0.3.5  # or any release ≥ the cutoff
 ARTIFACT=pso-poseidon-${TAG#v}.crate
 
 # Download the artifact + its sig + cert.

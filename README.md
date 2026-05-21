@@ -74,12 +74,12 @@ read the audit report [here](https://github.com/Lightprotocol/light-poseidon/blo
 
 ## Verifying releases
 
-Releases tagged from `v0.3.2` onward ship sigstore cosign signatures + SLSA build-provenance attestations for every artifact. See [SECURITY.md](SECURITY.md) for the threat model and the copy-pasteable verify recipe.
+Releases tagged from `v0.3.5` onward ship sigstore cosign signatures + SLSA build-provenance attestations for every artifact. See [SECURITY.md](SECURITY.md) for the threat model and the copy-pasteable verify recipe.
 
 Quick check:
 
 ```sh
-TAG=v0.3.2
+TAG=v0.3.5
 ARTIFACT=pso-poseidon-${TAG#v}.crate
 gh release download "$TAG" --repo psonet/pso-poseidon \
   --pattern "$ARTIFACT" --pattern "$ARTIFACT.sig" --pattern "$ARTIFACT.pem"
