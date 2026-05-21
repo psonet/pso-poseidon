@@ -71,3 +71,22 @@ This library has been audited by [Veridise](https://veridise.com/). You can
 read the audit report [here](https://github.com/Lightprotocol/light-poseidon/blob/main/assets/audit.pdf).
 
 <!-- cargo-rdme end -->
+
+## Verifying releases
+
+Releases tagged from `v0.3.2` onward ship sigstore cosign signatures + SLSA build-provenance attestations for every artifact. See [SECURITY.md](SECURITY.md) for the threat model and the copy-pasteable verify recipe.
+
+Quick check:
+
+```sh
+TAG=v0.3.2
+ARTIFACT=pso-poseidon-${TAG#v}.crate
+gh release download "$TAG" --repo psonet/pso-poseidon \
+  --pattern "$ARTIFACT" --pattern "$ARTIFACT.sig" --pattern "$ARTIFACT.pem"
+cosign verify-blob \
+  --certificate "$ARTIFACT.pem" --signature "$ARTIFACT.sig" \
+  --certificate-identity-regexp \
+    '^https://github\.com/psonet/pso-poseidon/\.github/workflows/ci\.yml@refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  "$ARTIFACT"
+```
