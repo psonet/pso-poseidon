@@ -51,6 +51,23 @@ let hash = poseidon.hash(&[input1, input2]).unwrap();
 // Do something with `hash`.
 ```
 
+## Poseidon2
+
+`Poseidon2` is a separate, generic BN254 **Poseidon2** hash, bit-compatible
+with noir's in-circuit `poseidon2` (Barretenberg's permutation + sponge). Use
+it for off-circuit hashing that must reproduce an in-circuit Poseidon2 result.
+It shares no parameters with the circom-compatible `Poseidon` above —
+Poseidon2 is a distinct construction. BN254 is built in via
+`Poseidon2::<Fr>::new()`; other fields supply their own constants.
+
+```rust
+use ark_bn254::Fr;
+use pso_poseidon::{Poseidon2, PoseidonHasher};
+
+let mut poseidon2 = Poseidon2::<Fr>::new();
+let _hash = poseidon2.hash(&[Fr::from(1u64), Fr::from(2u64)]).unwrap();
+```
+
 ## Field Arithmetic
 
 This library uses [ark-ff](https://github.com/arkworks-rs/algebra) for field arithmetic. While ark-ff carries an academic disclaimer, it is widely adopted in production by major projects including [Aleo](https://github.com/AleoNet/snarkVM), [Penumbra](https://github.com/penumbra-zone/penumbra), [Mina (Kimchi)](https://github.com/o1-labs/proof-systems), and [Espresso Systems](https://github.com/EspressoSystems).
