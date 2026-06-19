@@ -2,11 +2,11 @@
 name = "pso-poseidon"
 version = "0.3.6"
 edition = "2021"
-description = "Poseidon hash implementation compatible with Circom"
+description = "BN254 Poseidon (Circom-compatible) and Poseidon2 (Barretenberg/noir-compatible) hash implementations"
 license = "MIT"
 repository = "https://github.com/psonet/pso-poseidon"
 
 [dependencies]
-ark-ff = "0.5"
-ark-bn254 = "0.5"
+ark-ff = "0.6"
+ark-bn254 = "0.6"
 thiserror = "2.0.17"
