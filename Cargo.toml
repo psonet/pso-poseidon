@@ -1,6 +1,6 @@
 [package]
 name = "pso-poseidon"
-version = "0.3.6"
+version = "0.4.0"
 edition = "2021"
 description = "BN254 Poseidon (Circom-compatible) and Poseidon2 (Barretenberg/noir-compatible) hash implementations"
 license = "MIT"

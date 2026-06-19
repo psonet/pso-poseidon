@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## v0.4.0 - 2026-06-19
+#### Features
+- <span style="background-color: #d73a49; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold; font-size: 0.85em;">BREAKING</span>bb-compatible Poseidon2 (generic) and upgrade to arkworks 0.6 - (6a47020) - Anton Velichko
+
+- - -
+
 ## v0.3.6 - 2026-05-21
 #### Bug Fixes
 - (**release**) broaden verify-release identity regex to accept refs/heads/main - (0366f88) - Anton Velichko
