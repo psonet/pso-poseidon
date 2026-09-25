@@ -10,3 +10,10 @@ repository = "https://github.com/psonet/pso-poseidon"
 ark-ff = "0.6"
 ark-bn254 = "0.6"
 thiserror = "2.0.17"
+
+# Rustdoc lints. An intra-doc link that stops resolving is a silent docs
+# regression — nothing reads the rendered output, so nothing notices. CI runs
+# `cargo doc` with `-D warnings`, which turns a dead [`Type`] link into a
+# build failure instead.
+[lints.rustdoc]
+all = "warn"

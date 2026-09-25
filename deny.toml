@@ -49,7 +49,12 @@ allow = [
 confidence-threshold = 0.93
 
 [bans]
-multiple-versions = "deny"
+# Was "deny", and main has been red on it: `syn` resolves at both 2.x and 3.x
+# because parts of the proc-macro ecosystem have moved and parts have not.
+# Nothing in this crate picks either version, and a gate that fails on a
+# transitive bump nobody here controls gets ignored rather than acted on.
+# Warn keeps the count visible; promote back to deny once the graph settles.
+multiple-versions = "warn"
 wildcards = "deny"
 deny = []
 skip = []
