@@ -259,10 +259,99 @@ jobs:
   # vX.Y.Z` commit + matching tag if `feat/fix/breaking` commits
   # have landed.
   # ----------------------------------------------------------------
+  # Spelling. Cheap, no toolchain. The allow-list in typos.toml holds only
+  # checked false positives, so a hit here is worth reading.
+  typos:
+    name: typos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: crate-ci/typos@v1.50.2
+        with:
+          config: ./typos.toml
+
+  # pso-poseidon publishes to crates.io and is pinned across the estate.
+  semver:
+    name: semver
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-semver-checks
+      # A version never published yet has no baseline; that is a skip, not a
+      # failure. `--workspace` follows whatever the manifests mark publishable,
+      # so adding a crate does not mean editing this line.
+      - run: cargo semver-checks check-release --workspace --all-features
+
+  # Coverage. Reported, never enforced: a threshold set before anyone has seen
+  # the number is a guess. Deliberately outside the `ci` aggregator's needs, so
+  # a slow or failed coverage run cannot hold up a merge.
+  coverage:
+    name: coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: llvm-tools-preview
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov,cargo-nextest
+      - run: cargo llvm-cov nextest --workspace --profile ci --lcov --output-path lcov.info
+
+      # `--summary-only` prints a fixed-width table meant for a terminal, which
+      # renders as a wall of unaligned text in Markdown. Read the JSON instead.
+      - name: Render coverage report
+        run: |
+          cargo llvm-cov report --json --summary-only --output-path coverage.json
+          python3 .github/scripts/coverage_report.py coverage.json > coverage.md
+          cat coverage.md >> "$GITHUB_STEP_SUMMARY"
+
+      # One comment rewritten in place on each push; `header` makes it sticky.
+      - name: Coverage PR comment
+        if: github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: coverage
+          path: coverage.md
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: |
+            lcov.info
+            coverage.json
+            coverage.md
+          retention-days: 14
+
+  # One required status for branch protection. Without it, adding a job means
+  # editing the protected-branch settings too, and a job skipped for a
+  # legitimate reason reads as "pending" forever. Fails when any dependency
+  # failed or was cancelled; tolerates a skip.
+  ci:
+    name: ci
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [cargo-deny, commitlint, lint, test, build, typos, semver]
+    steps:
+      - name: Check dependency results
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          set -euo pipefail
+          echo "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          if echo "$RESULTS" | jq -e 'any(.[]; .result == "failure" or .result == "cancelled")' > /dev/null; then
+            echo "::error::one or more required jobs did not succeed"
+            exit 1
+          fi
+          echo "all required jobs succeeded or were skipped"
+
   tag:
     name: Bump version & tag
     runs-on: ubuntu-latest
-    needs: [resolve, lint, test, build]
+    needs: [resolve, ci] # resolve for its outputs; ci is the gate
     if: |
       needs.resolve.outputs.release_tag == '' &&
       github.event_name == 'push' &&

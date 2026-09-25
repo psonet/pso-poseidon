@@ -1,0 +1,18 @@
+# nextest profiles. `cargo nextest run` picks `default`; CI passes
+# `--profile ci`.
+
+[profile.default]
+# A wedged test otherwise burns the job's whole wall clock.
+slow-timeout = { period = "5m", terminate-after = 1 }
+
+[profile.ci]
+# Report every failure in one run rather than stopping at the first.
+fail-fast = false
+# Turns an infrastructure blip into a pass. The flaky reporter
+# (.github/scripts/warn_flaky.py) keeps a retried test visible so the retries
+# do not hide instability.
+retries = 2
+test-threads = "num-cpus"
+
+[profile.ci.junit]
+path = "junit.xml"
