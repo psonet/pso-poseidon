@@ -66,17 +66,44 @@ jobs:
           echo "release_tag=${tag}"
           echo "release_tag=${tag}" >> "$GITHUB_OUTPUT"
 
-  # Supply-chain enforcement. Runs on every PR + nightly cron @ 04:00 UTC.
-  # Independent of the rest of the pipeline so a fresh advisory surfacing
-  # nightly is visible without rerunning lint/test.
-  cargo-deny:
-    name: cargo-deny
+  # --------------------------------------------------------------- #
+  # Supply chain. One job, the same four questions in every psonet repo:
+  # are the licences ones we may ship, do the git sources resolve to hosts
+  # we trust, are duplicate versions under control, and is anything in the
+  # tree the subject of a published advisory.
+  #
+  # Runs on every PR and on the nightly cron, so an advisory published
+  # against a dependency that nobody touched still surfaces within a day.
+  # --------------------------------------------------------------- #
+  supply-chain:
+    name: supply chain
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: EmbarkStudios/cargo-deny-action@v2
+      - uses: taiki-e/install-action@v2
         with:
-          command: check all
+          tool: cargo-deny,cargo-audit
+
+      # Licences, git sources and bans gate. All three pass on this tree
+      # today, so a regression here is a new fact and fails the build.
+      - name: cargo deny (licenses, sources, bans)
+        run: cargo deny --all-features check licenses sources bans
+
+      # Gates. This tree carries no advisories today, which is the state the
+      # repo's own `cargo deny check all` already held it to; splitting the
+      # command must not quietly relax that. A new advisory here is either a
+      # dependency to upgrade or an entry with a reason in deny.toml's
+      # [advisories].
+      - name: cargo deny (advisories)
+        run: cargo deny --all-features check advisories
+
+      # A separate RUSTSEC database revision from cargo-deny's, so a
+      # freshly-published advisory surfaces from whichever updates first.
+      # Reports rather than gates: the gate above is the one with a
+      # deliberate ignore list behind it.
+      - name: cargo audit
+        continue-on-error: true
+        run: cargo audit || echo "::warning::cargo audit found advisories. Not gating yet."
 
   commitlint:
     name: Commit lint (conventional-commits)
@@ -210,8 +237,33 @@ jobs:
             -A clippy::panic
         continue-on-error: ${{ matrix.rust == 'nightly' }}
 
-      - name: Run tests
-        run: cargo test --verbose --all-features
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+
+      # --profile ci: retries, fail-fast off and the JUnit report that the
+      # flaky reporter below reads. Same runner, same profile name, in every
+      # psonet repo.
+      - name: Test (nextest)
+        run: cargo nextest run --profile ci --all-features
+
+      # Retries turn a slow runner into a pass and hide that the test is
+      # unstable. This reads the JUnit report back and warns per test that only
+      # survived on a retry. Never fails the job.
+      - name: Report flaky tests
+        if: always()
+        run: |
+          command -v python3 >/dev/null 2>&1 || {
+            echo "::notice::python3 unavailable; skipping the flaky-test report"
+            exit 0
+          }
+          python3 .github/scripts/warn_flaky.py target/nextest/ci/junit.xml
+
+      # nextest builds and runs each test in its own process, which is what
+      # makes retries and partitioning possible — but it cannot run doctests.
+      # Without this line they would silently stop being tested.
+      - name: cargo test --doc
+        run: cargo test --doc --all-features
 
       - name: Build
         run: cargo build --verbose --release --all-features
@@ -339,7 +391,7 @@ jobs:
     name: ci
     runs-on: ubuntu-latest
     if: always()
-    needs: [cargo-deny, commitlint, lint, test, build, typos, semver]
+    needs: [supply-chain, commitlint, lint, test, build, typos, semver]
     steps:
       - name: Check dependency results
         env:
