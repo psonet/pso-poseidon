@@ -4,8 +4,8 @@ name: CI
 #   push:main         full pipeline incl. cog auto-bump + publish + github-release
 #   push:tags:["v*"]  release-only path; skip lint/test/build, run publish + github-release
 #                     against the named tag
-#   pull_request      lint/test/build/cargo-deny only — no release work
-#   schedule          nightly cargo-deny at 04:00 UTC to surface fresh advisories
+#   pull_request      lint/test/build/supply-chain only — no release work
+#   schedule          nightly supply-chain run at 04:00 UTC to surface fresh advisories
 #   workflow_dispatch maintainer-named (re-)release; empty `tag` input runs the normal
 #                     main pipeline
 
