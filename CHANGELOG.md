@@ -2,6 +2,19 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## v0.5.0 - 2026-09-26
+#### Features
+- (**poseidon2**) add hash_noir matching noir-lang/poseidon and correct docs - (6095feb) - Anton Velichko
+#### Bug Fixes
+- (**ci**) run the version bump when commitlint is skipped on main - (d683413) - Anton Velichko
+- (**ci**) print repo-relative paths in the coverage table - (8b6592a) - Anton Velichko
+- (**ci**) name the supply-chain job correctly in the workflow header - (dce357f) - Anton Velichko
+- (**ci**) give every repo the same supply-chain job and test runner - (678052f) - Anton Velichko
+- (**ci**) grant the coverage job permission to write its PR comment - (0951978) - Anton Velichko
+- (**ci**) add the shared psonet quality gates - (e257a01) - Anton Velichko
+
+- - -
+
 ## v0.4.0 - 2026-06-19
 #### Features
 - <span style="background-color: #d73a49; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold; font-size: 0.85em;">BREAKING</span>bb-compatible Poseidon2 (generic) and upgrade to arkworks 0.6 - (6a47020) - Anton Velichko
