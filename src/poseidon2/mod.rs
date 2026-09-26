@@ -1,9 +1,18 @@
-//! A Poseidon2 hash generic over the prime field, with BN254 built in and
-//! bit-identical to what noir computes in-circuit: [`Poseidon2::permutation`]
-//! matches `bn254_blackbox_solver::poseidon2` (the `Poseidon2Permutation`
-//! blackbox), and the [`PoseidonHasher`](crate::PoseidonHasher) sponge matches
-//! `std::hash::poseidon2` (`iv = len << 64` in the capacity, absorb in `RATE`
-//! blocks, a final permutation, squeeze `state[0]`).
+//! A Poseidon2 hash generic over the prime field, with BN254 built in.
+//! [`Poseidon2::permutation`] matches `bn254_blackbox_solver::poseidon2` (the
+//! `Poseidon2Permutation` blackbox). Two sponges are built on it:
+//!
+//! - [`PoseidonHasher::hash`](crate::PoseidonHasher) — `iv = len << 64` in the
+//!   capacity, absorb in `RATE` blocks with a permutation after each full
+//!   block, then **always** a final permutation, squeeze `state[0]`. This is
+//!   the framing psonet's circuits use (`pso-circuit-core/src/hash2.nr`) and
+//!   must not change.
+//! - [`Poseidon2::hash_noir`] — the sponge of `noir-lang/poseidon`'s
+//!   `Poseidon2::hash` and Barretenberg: identical, except the final
+//!   permutation is skipped when the last block was full (`len` a non-zero
+//!   multiple of 3). Use it to reproduce circuits built on that library.
+//!
+//! The two agree unless `len` is a non-zero multiple of 3.
 //!
 //! Width `t = 4`, S-box `x^5`, `R_F = 8` full + `R_P = 56` partial rounds. The
 //! BN254 constants are vendored verbatim in the private `constants` submodule;
@@ -131,10 +140,38 @@ impl<F: PrimeField> Poseidon2<F> {
         state
     }
 
-    /// Fixed-arity Poseidon2 sponge of `inputs`, matching noir's
-    /// `std::hash::poseidon2`. `iv = (len << 64)` seeds the capacity; the rate
-    /// is absorbed in blocks of [`RATE`], then a final permutation squeezes
-    /// `state[0]`.
+    /// Poseidon2 sponge exactly as `noir-lang/poseidon`'s
+    /// `Poseidon2::hash(input, len)` and Barretenberg compute it: `iv = len << 64`
+    /// seeds the capacity, rate blocks of [`RATE`] are absorbed with a
+    /// permutation after each full block, and a final permutation runs only if
+    /// the last block was partial (or `len == 0`). Differs from
+    /// [`PoseidonHasher::hash`](crate::PoseidonHasher) when `len` is a non-zero
+    /// multiple of [`RATE`].
+    pub fn hash_noir(&self, inputs: &[F]) -> F {
+        let len = inputs.len();
+        let iv = F::from(len as u64) * F::from(1u128 << 64);
+        let mut state = [F::ZERO, F::ZERO, F::ZERO, iv];
+        let full = len / RATE;
+        for block in 0..full {
+            state[0] += inputs[block * RATE];
+            state[1] += inputs[block * RATE + 1];
+            state[2] += inputs[block * RATE + 2];
+            state = self.permutation(&state);
+        }
+        for i in 0..(len % RATE) {
+            state[i] += inputs[full * RATE + i];
+        }
+        if len == 0 || !len.is_multiple_of(RATE) {
+            state = self.permutation(&state);
+        }
+        state[0]
+    }
+
+    /// Fixed-arity Poseidon2 sponge of `inputs` in psonet's framing:
+    /// `iv = (len << 64)` seeds the capacity; the rate is absorbed in blocks of
+    /// [`RATE`], then a final permutation always squeezes `state[0]`. Matches
+    /// `pso-circuit-core/src/hash2.nr`; see [`Poseidon2::hash_noir`] for the
+    /// `noir-lang/poseidon` variant.
     fn sponge(&self, inputs: &[F]) -> F {
         let len = inputs.len();
         // iv = len << 64
@@ -156,8 +193,8 @@ impl<F: PrimeField> Poseidon2<F> {
 }
 
 impl Poseidon2<ark_bn254::Fr> {
-    /// A BN254 Poseidon2 hasher, bit-compatible with noir's in-circuit
-    /// `poseidon2`.
+    /// A BN254 Poseidon2 hasher. The permutation is Barretenberg's; see the
+    /// module docs for which sponge matches which in-circuit hash.
     pub fn new() -> Self {
         Self::with_config(&constants::BN254_CONFIG)
     }
@@ -237,5 +274,36 @@ mod tests {
             Fr::from(0u64),
         ]);
         assert_eq!(via_new, via_cfg);
+    }
+    /// `hash_noir` known answers: `nargo test` printing
+    /// `noir-lang/poseidon` v0.3.0 `Poseidon2::hash([1..=n], n)` for n = 0..=7.
+    #[test]
+    fn hash_noir_kat_from_noir_lang_poseidon() {
+        let expected: [Fr; 8] = [
+            MontFp!("0x18dfb8dc9b82229cff974efefc8df78b1ce96d9d844236b496785c698bc6732e"),
+            MontFp!("0x168758332d5b3e2d13be8048c8011b454590e06c44bce7f702f09103eef5a373"),
+            MontFp!("0x038682aa1cb5ae4e0a3f13da432a95c77c5c111f6f030faf9cad641ce1ed7383"),
+            MontFp!("0x23864adb160dddf590f1d3303683ebcb914f828e2635f6e85a32f0a1aecd3dd8"),
+            MontFp!("0x130bf204a32cac1f0ace56c78b731aa3809f06df2731ebcf6b3464a15788b1b9"),
+            MontFp!("0x2247be7014a54d17342a7ef677f58d28877780d203860396967f5d0a18d259db"),
+            MontFp!("0x07f57fcda925c06dc0a311f3f17fa0218e079b514552744a25ba8a74ee8c9e7a"),
+            MontFp!("0x16f929bc0d216df4b05bdc44222463edf2b9791bd949ab926eebda06a502d238"),
+        ];
+        let p = Poseidon2::<Fr>::new();
+        for (n, want) in expected.iter().enumerate() {
+            let input: Vec<Fr> = (1..=n as u64).map(Fr::from).collect();
+            assert_eq!(p.hash_noir(&input), *want, "n = {n}");
+        }
+    }
+
+    /// The two sponges agree except when the length is a non-zero multiple of 3.
+    #[test]
+    fn hash_and_hash_noir_differ_only_on_full_last_block() {
+        let mut p = Poseidon2::<Fr>::new();
+        for n in 0..=9u64 {
+            let input: Vec<Fr> = (1..=n).map(Fr::from).collect();
+            let same = p.hash(&input).unwrap() == p.hash_noir(&input);
+            assert_eq!(same, n == 0 || !n.is_multiple_of(3), "n = {n}");
+        }
     }
 }

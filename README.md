@@ -53,9 +53,7 @@ let hash = poseidon.hash(&[input1, input2]).unwrap();
 
 ## Poseidon2
 
-`Poseidon2` is a separate, generic BN254 **Poseidon2** hash, bit-compatible
-with noir's in-circuit `poseidon2` (Barretenberg's permutation + sponge). Use
-it for off-circuit hashing that must reproduce an in-circuit Poseidon2 result.
+`Poseidon2` is a separate, generic BN254 **Poseidon2** hash on Barretenberg's permutation. `hash` (`PoseidonHasher`) uses psonet's circuit framing, a final permutation always, which `pso-circuit-core/src/hash2.nr` reproduces. `Poseidon2::hash_noir` reproduces `noir-lang/poseidon`'s `Poseidon2::hash` (and Barretenberg's sponge), which skips that permutation when the last block is full. The two differ only when the input length is a non-zero multiple of 3; pick the one the circuit uses.
 It shares no parameters with the circom-compatible `Poseidon` above —
 Poseidon2 is a distinct construction. BN254 is built in via
 `Poseidon2::<Fr>::new()`; other fields supply their own constants.
