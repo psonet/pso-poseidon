@@ -45,9 +45,11 @@
 //!
 //! # Poseidon2
 //!
-//! [`Poseidon2`] is a separate, generic BN254 **Poseidon2** hash, bit-compatible
-//! with noir's in-circuit `poseidon2` (Barretenberg's permutation + sponge). Use
-//! it for off-circuit hashing that must reproduce an in-circuit Poseidon2 result.
+//! [`Poseidon2`] is a separate, generic BN254 **Poseidon2** hash on Barretenberg's
+//! permutation. `hash` uses psonet's circuit framing (a final permutation
+//! always); [`Poseidon2::hash_noir`] reproduces `noir-lang/poseidon`'s
+//! `Poseidon2::hash` (and Barretenberg's sponge). They differ only when the
+//! input length is a non-zero multiple of 3.
 //! It shares no parameters with the circom-compatible `Poseidon` above —
 //! Poseidon2 is a distinct construction. BN254 is built in via
 //! `Poseidon2::<Fr>::new()`; other fields supply their own constants.
@@ -86,7 +88,7 @@ use thiserror::Error;
 mod poseidon;
 pub use poseidon::{Poseidon, PoseidonParameters};
 
-/// bb-compatible Poseidon2 (matches noir's in-circuit `poseidon2`).
+/// Poseidon2 on Barretenberg's permutation (see the module docs for the two sponges).
 pub mod poseidon2;
 pub use poseidon2::Poseidon2;
 
